@@ -1,13 +1,8 @@
 import { fromEvent } from "rxjs";
 import { NotificationManager } from "./notification-manager";
-import { notificationStream } from "./notification-stream";
+import { getNotificationStream } from "./notification-stream";
 
-enum NotificationStates {
-  auto,
-  receive,
-  pause
-}
-
+const notificationStream = getNotificationStream(1000, [100]);
 const notification = new NotificationManager(notificationStream);
 
 fromEvent(document.getElementById("start"), "click").subscribe(() => {

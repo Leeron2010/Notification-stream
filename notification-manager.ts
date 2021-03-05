@@ -1,12 +1,10 @@
 import {
-  interval,
   merge,
   Observable,
   BehaviorSubject,
-  fromEvent,
   Subject,
-  EMPTY,
-  of
+  of,
+  interval
 } from "rxjs";
 import {
   bufferCount,
@@ -21,15 +19,14 @@ import {
   flatMap,
   withLatestFrom,
   scan,
-  takeUntil
+  takeUntil,
+  startWith,
+  mapTo,
+  mergeAll
 } from "rxjs/operators";
 import { NotificationManagesStates } from "./notificaton-manager-states";
 
 export class NotificationManager<T> {
-  private readonly pauseStatus$: Observable<boolean>;
-  private readonly pauseOn$;
-  private readonly pauseOff$;
-  private readonly chunk$;
   private readonly stop$ = new Subject();
   private readonly pausedNotifications$: Observable<T[]>;
   private readonly pausedNotificationsCount$: Observable<number>;
@@ -44,7 +41,7 @@ export class NotificationManager<T> {
       share()
     );
 
-    this.pauseStatus$ = innerSource.pipe(
+    const pauseStatus$ = innerSource.pipe(
       bufferTime(250),
       bufferCount(4),
       map((parts: any[][]) => parts.filter(part => part.length).length),
@@ -57,15 +54,31 @@ export class NotificationManager<T> {
           return manual === NotificationManagesStates.pause;
         }
       }),
+      startWith(false),
       distinctUntilChanged(),
       share()
     );
-    this.pauseOn$ = this.pauseStatus$.pipe(filter(x => !!x));
-    this.pauseOff$ = this.pauseStatus$.pipe(filter(x => !x));
 
-    // this.chunk$ = pauseOn$.
+    const chunkStatus$ = pauseStatus$.pipe(
+      switchMap(isPaused => {
+        return isPaused
+          ? interval(1000).pipe(
+              mapTo([true, false]),
+              mergeAll(),
+              startWith(true)
+            )
+          : of(false);
+      }),
+      share()
+    );
 
-    this.pausedNotifications$ = this.pauseStatus$.pipe(
+    const pauseOn$ = pauseStatus$.pipe(filter(x => !!x));
+    const pauseOff$ = pauseStatus$.pipe(filter(x => !x));
+
+    const openChank$ = chunkStatus$.pipe(filter(x => !x));
+    const closeChank$ = chunkStatus$.pipe(filter(x => !!x));
+
+    this.pausedNotifications$ = pauseStatus$.pipe(
       switchMap(value => {
         return value
           ? innerSource.pipe(scan((acc: T[], val: T) => [...acc, val], []))
@@ -80,13 +93,11 @@ export class NotificationManager<T> {
 
     this.source$ = merge(
       innerSource.pipe(
-        // @ts-ignore
-        windowToggle(this.pauseOff$, () => this.pauseOn$),
-        // @ts-ignore
+        windowToggle(pauseOff$, () => pauseOn$),
         flatMap(x => x),
         map(x => [x])
       ),
-      innerSource.pipe(bufferToggle(this.pauseOn$, () => this.pauseOff$))
+      innerSource.pipe(bufferToggle(openChank$, () => closeChank$))
     );
   }
 

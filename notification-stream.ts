@@ -27,3 +27,29 @@ export const notificationStream = new Observable(subscriber => {
     )
     .subscribe();
 });
+
+export function getNotificationStream(
+  switchInterval = 5000,
+  intervals = [0, 100, 150, 300, 1000]
+) {
+  return new Observable(subscriber => {
+    interval(switchInterval)
+      .pipe(
+        startWith(-1),
+        switchMap(() => {
+          const intervalValue = getOneOf(...intervals);
+          document.getElementById("interval").innerText = `${intervalValue}`;
+          return intervalValue
+            ? interval(intervalValue).pipe(startWith(-1))
+            : EMPTY;
+        }),
+        tap(v => subscriber.next(v))
+      )
+      .pipe(
+        tap(() => {
+          document.getElementById("counter").innerText = `${++counter}`;
+        })
+      )
+      .subscribe();
+  });
+}
