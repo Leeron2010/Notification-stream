@@ -1,21 +1,30 @@
 <div class="app">
-	<button id="start">start</button>
-	<button id="close">close</button>
+  <button id="start">start</button>
+  <button id="stop">stop</button>
 
-	<hr>
+  <hr>
 
-	<button id="auto">auto</button>
-	<button id="pause">pause</button>
-	<button id="receive">receive</button>
+  <button id="auto">auto</button>
+  <button id="pause">pause</button>
+  <button id="forcePause">forcePause</button>
+  <button id="receive">receive</button>
 
-	<hr>
+  <hr>
 
-	<div>
-		<span>Notification count:</span>
-		<span id="counter"></span>
-	</div>
-	<div>
-		<span>Interval:</span>
-		<span id="interval"></span>
-	</div>
+  <div>
+    <span>Notification counter (hot):</span>
+    <span id="counter"></span>
+  </div>
+  <div>
+    <span>Notification interval (ms):</span>
+    <span id="interval"></span>
+  </div>
+  <div>
+    <span>Paused buffer counter:</span>
+    <span id="pausedCount"></span>
+  </div>
+  <div>
+    <span>Paused buffer notifications:</span>
+    <span id="pausedBuffer"></span>
+  </div>
 </div>

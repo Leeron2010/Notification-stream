@@ -4,7 +4,8 @@ import {
   BehaviorSubject,
   Subject,
   of,
-  interval
+  interval,
+  EMPTY
 } from "rxjs";
 import {
   bufferCount,
@@ -22,20 +23,21 @@ import {
   takeUntil,
   startWith,
   mapTo,
-  mergeAll
+  mergeAll,
+  tap
 } from "rxjs/operators";
-import { NotificationManagesStates } from "./notificaton-manager-states";
+import { NotificationStreamStates } from "./notificaton-stream-states";
 
 export class NotificationManager<T> {
   private readonly stop$ = new Subject();
   private readonly pausedNotifications$: Observable<T[]>;
   private readonly pausedNotificationsCount$: Observable<number>;
   private readonly source$: Observable<T[]>;
-  public readonly manual$ = new BehaviorSubject<NotificationManagesStates>(
-    NotificationManagesStates.auto
+  private readonly streamState$ = new BehaviorSubject<NotificationStreamStates>(
+    NotificationStreamStates.auto
   );
 
-  constructor(source: Observable<T>) {
+  constructor(source: Observable<T>, chunkTime: number = null) {
     const innerSource = source.pipe(
       takeUntil(this.stop$),
       share()
@@ -46,12 +48,15 @@ export class NotificationManager<T> {
       bufferCount(4),
       map((parts: any[][]) => parts.filter(part => part.length).length),
       map(weight => weight > 2),
-      withLatestFrom(this.manual$),
-      map(([prediction, manual]: [boolean, NotificationManagesStates]) => {
-        if (manual === NotificationManagesStates.auto) {
+      withLatestFrom(this.streamState$),
+      map(([prediction, streamState]: [boolean, NotificationStreamStates]) => {
+        if (streamState === NotificationStreamStates.auto) {
           return prediction;
         } else {
-          return manual === NotificationManagesStates.pause;
+          return (
+            streamState === NotificationStreamStates.pause ||
+            streamState === NotificationStreamStates.forcePause
+          );
         }
       }),
       startWith(false),
@@ -60,14 +65,20 @@ export class NotificationManager<T> {
     );
 
     const chunkStatus$ = pauseStatus$.pipe(
-      switchMap(isPaused => {
-        return isPaused
-          ? interval(1000).pipe(
-              mapTo([true, false]),
-              mergeAll(),
-              startWith(true)
-            )
-          : of(false);
+      switchMap((isPaused: boolean) => {
+        const streamState = this.streamState$.getValue();
+
+        if (isPaused) {
+          return chunkTime && streamState === NotificationStreamStates.pause
+            ? interval(chunkTime).pipe(
+                mapTo([false, true]),
+                mergeAll(),
+                startWith(isPaused)
+              )
+            : of(isPaused);
+        } else {
+          return of(isPaused);
+        }
       }),
       share()
     );
@@ -75,14 +86,19 @@ export class NotificationManager<T> {
     const pauseOn$ = pauseStatus$.pipe(filter(x => !!x));
     const pauseOff$ = pauseStatus$.pipe(filter(x => !x));
 
-    const openChank$ = chunkStatus$.pipe(filter(x => !x));
-    const closeChank$ = chunkStatus$.pipe(filter(x => !!x));
+    const openChank$ = chunkStatus$.pipe(filter(x => !!x));
+    const closeChank$ = chunkStatus$.pipe(filter(x => !x));
 
-    this.pausedNotifications$ = pauseStatus$.pipe(
-      switchMap(value => {
-        return value
-          ? innerSource.pipe(scan((acc: T[], val: T) => [...acc, val], []))
-          : of([]);
+    this.pausedNotifications$ = chunkStatus$.pipe(
+      takeUntil(this.stop$),
+      switchMap((isOpen: boolean) => {
+        if (isOpen) {
+          return innerSource.pipe(
+            scan((acc: T[], val: T) => [...acc, val], [])
+          );
+        } else {
+          return of([]);
+        }
       }),
       share()
     );
@@ -101,16 +117,20 @@ export class NotificationManager<T> {
     );
   }
 
+  public pause() {
+    this.streamState$.next(NotificationStreamStates.pause);
+  }
+
   public forcePause() {
-    this.manual$.next(NotificationManagesStates.pause);
+    this.streamState$.next(NotificationStreamStates.forcePause);
   }
 
-  public autoReceive() {
-    this.manual$.next(NotificationManagesStates.auto);
+  public auto() {
+    this.streamState$.next(NotificationStreamStates.auto);
   }
 
-  public forceReceive() {
-    this.manual$.next(NotificationManagesStates.receive);
+  public receive() {
+    this.streamState$.next(NotificationStreamStates.receive);
   }
 
   public stop() {
@@ -127,5 +147,9 @@ export class NotificationManager<T> {
 
   public getPausedNotificationsCount$() {
     return this.pausedNotificationsCount$;
+  }
+
+  public getStreamState$() {
+    return this.streamState$.pipe(takeUntil(this.stop$));
   }
 }
