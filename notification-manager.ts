@@ -37,17 +37,23 @@ export class NotificationManager<T> {
     NotificationStreamStates.auto
   );
 
-  constructor(source: Observable<T>, chunkTime: number = null) {
+  constructor(
+    source: Observable<T>,
+    private chunkTime: number = null,
+    examinationTime = 2000,
+    examinationSlices = 4,
+    weightLimit = 2
+  ) {
     const innerSource = source.pipe(
       takeUntil(this.stop$),
       share()
     );
 
     const pauseStatus$ = innerSource.pipe(
-      bufferTime(250),
-      bufferCount(4),
+      bufferTime(examinationTime / examinationSlices),
+      bufferCount(examinationSlices),
       map((parts: any[][]) => parts.filter(part => part.length).length),
-      map(weight => weight > 2),
+      map(weight => weight > weightLimit),
       withLatestFrom(this.streamState$),
       map(([prediction, streamState]: [boolean, NotificationStreamStates]) => {
         if (streamState === NotificationStreamStates.auto) {
@@ -115,6 +121,10 @@ export class NotificationManager<T> {
       ),
       innerSource.pipe(bufferToggle(openChank$, () => closeChank$))
     );
+  }
+
+  public setChunkTime(chunkTime: number | null) {
+    this.chunkTime = chunkTime;
   }
 
   public pause() {
