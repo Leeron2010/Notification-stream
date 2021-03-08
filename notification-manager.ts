@@ -23,8 +23,7 @@ import {
   takeUntil,
   startWith,
   mapTo,
-  mergeAll,
-  tap
+  mergeAll
 } from "rxjs/operators";
 import { NotificationStreamStates } from "./notificaton-stream-states";
 
@@ -36,10 +35,10 @@ export class NotificationManager<T> {
   private readonly streamState$ = new BehaviorSubject<NotificationStreamStates>(
     NotificationStreamStates.auto
   );
+  private chunkTime: number = null;
 
   constructor(
     source: Observable<T>,
-    private chunkTime: number = null,
     examinationTime = 2000,
     examinationSlices = 4,
     weightLimit = 2
@@ -59,10 +58,7 @@ export class NotificationManager<T> {
         if (streamState === NotificationStreamStates.auto) {
           return prediction;
         } else {
-          return (
-            streamState === NotificationStreamStates.pause ||
-            streamState === NotificationStreamStates.forcePause
-          );
+          return streamState === NotificationStreamStates.pause;
         }
       }),
       startWith(false),
@@ -75,8 +71,9 @@ export class NotificationManager<T> {
         const streamState = this.streamState$.getValue();
 
         if (isPaused) {
-          return chunkTime && streamState === NotificationStreamStates.pause
-            ? interval(chunkTime).pipe(
+          return this.chunkTime &&
+            streamState === NotificationStreamStates.pause
+            ? interval(this.chunkTime).pipe(
                 mapTo([false, true]),
                 mergeAll(),
                 startWith(isPaused)
@@ -124,18 +121,18 @@ export class NotificationManager<T> {
   }
 
   public setChunkTime(chunkTime: number | null) {
-    this.chunkTime = chunkTime;
+    if (chunkTime === null || chunkTime === 0 || chunkTime) {
+      this.chunkTime = chunkTime;
+    }
   }
 
-  public pause() {
+  public pause(chunkTime?: number | null) {
+    this.setChunkTime(chunkTime);
     this.streamState$.next(NotificationStreamStates.pause);
   }
 
-  public forcePause() {
-    this.streamState$.next(NotificationStreamStates.forcePause);
-  }
-
-  public auto() {
+  public auto(chunkTime?: number | null) {
+    this.setChunkTime(chunkTime);
     this.streamState$.next(NotificationStreamStates.auto);
   }
 

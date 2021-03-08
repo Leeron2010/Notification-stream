@@ -5,8 +5,10 @@ import { NotificationStreamStates } from "./notificaton-stream-states";
 
 const notificationStream = getNotificationStream();
 const notification = new NotificationManager(notificationStream, 20000);
+let chankTime = 0;
 
 fromEvent(document.getElementById("start"), "click").subscribe(() => {
+  notification.setChunkTime(chankTime);
   notification.getSource$().subscribe(console.log.bind(this, "stream"));
   notification.getPausedNotificationsCount$().subscribe((count: number) => {
     document.getElementById("pausedCount").innerText = `${count}`;
@@ -28,15 +30,18 @@ fromEvent(document.getElementById("stop"), "click").subscribe(() => {
 });
 
 fromEvent(document.getElementById("auto"), "click").subscribe(() => {
-  notification.auto();
+  notification.auto(chankTime);
 });
+
 fromEvent(document.getElementById("pause"), "click").subscribe(() => {
-  notification.pause();
-});
-fromEvent(document.getElementById("forcePause"), "click").subscribe(() => {
-  notification.forcePause();
+  notification.pause(chankTime);
 });
 
 fromEvent(document.getElementById("receive"), "click").subscribe(() => {
   notification.receive();
+});
+
+fromEvent(document.getElementById("chank-time"), "change").subscribe(() => {
+  chankTime = +(document.getElementById("chank-time") as HTMLInputElement)
+    .value;
 });
