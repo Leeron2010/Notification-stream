@@ -72,7 +72,8 @@ export class NotificationManager<T> {
 
         if (isPaused) {
           return this.chunkTime &&
-            streamState === NotificationStreamStates.pause
+            (streamState === NotificationStreamStates.pause ||
+              streamState === NotificationStreamStates.auto)
             ? interval(this.chunkTime).pipe(
                 mapTo([false, true]),
                 mergeAll(),

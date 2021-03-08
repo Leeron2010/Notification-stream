@@ -4,7 +4,7 @@ import { getNotificationStream } from "./notification-stream";
 import { NotificationStreamStates } from "./notificaton-stream-states";
 
 const notificationStream = getNotificationStream();
-const notification = new NotificationManager(notificationStream, 20000);
+const notification = new NotificationManager(notificationStream);
 let chankTime = 0;
 
 fromEvent(document.getElementById("start"), "click").subscribe(() => {
