@@ -1,3 +1,1 @@
-# typescript-8emejg
-
-[Edit on StackBlitz ⚡️](https://stackblitz.com/edit/typescript-8emejg)
+# Mechanism for lossless natification watcher with pause
